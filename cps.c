@@ -87,7 +87,7 @@ unsigned char method = INVITE;
 void print_usage()
 {
     printf("Usage: cps <options> [param]\n");
-    printf("-t: capture tcp(only udp temprory)\n");
+    printf("-t: capture tcp\n");
     printf("-u: capture udp (default)\n");
     printf("-i: interface\n");
     printf("-p: port (default 5060)\n");
@@ -293,6 +293,15 @@ void cps_main_loop(u_char* arg, const struct pcap_pkthdr* pkthdr, const u_char* 
         }
 
         data = (u_char *)udp_hdr + sizeof(UDPHEADER);
+    } else if (proto == 6) {
+        TCPHEADER *tcp_hdr = (TCPHEADER *)(packet + sizeof(ETHHEADER) + sizeof(IPHEADER));
+        sport = ((tcp_hdr->SourPort >> 8) & 0x00FF) + ((tcp_hdr->SourPort << 8) & 0xFF00);
+        dport = ((tcp_hdr->DestPort >> 8) & 0x00FF) + ((tcp_hdr->DestPort << 8) & 0xFF00);
+        if (!(sport == port || dport == port)) {
+            return;
+        }
+
+        data = (u_char *)tcp_hdr + sizeof(TCPHEADER);
     } else {
         return;
     }
