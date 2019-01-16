@@ -172,7 +172,7 @@ void cps_timeout()
         max = cps;
     }
 
-    printf("%s: %lu /s   max: %lu /s   total: %lu    \r", method_s, cps, max, now_stat);
+    printf("%s: %20lu/s| max: %20lu/s| total: %20lu|\r", method_s, cps, max, now_stat);
     fflush(stdout);
 
     cps_stat.pre = now_stat;
@@ -348,6 +348,9 @@ int cps_init()
         printf("open device %s ok.\n", dev);
     }    
 
+    printf("\n\n\n");
+    printf("=========================================================================================\n");
+   
     pcap_loop(device, -1, cps_main_loop, NULL);
     pcap_close(device);
     
