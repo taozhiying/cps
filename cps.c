@@ -62,10 +62,15 @@ typedef struct udp_header {
     u_short crc;            //Ð£ÑéºÍ
 }UDPHEADER,*PUDPHEADER;
 
+#define MUTEX
 typedef struct _stat {
     unsigned long pre;
     unsigned long next;
+    #ifdef MUTEX
     pthread_mutex_t calc_lock;
+    #else
+    pthread_spinlock_t calc_lock;
+    #endif
 } STAT;
 
 STAT cps_stat;
@@ -83,6 +88,18 @@ enum method_num {
     BYT
 };
 unsigned char method = INVITE;
+
+#ifdef MUTEX
+#define LOCK_INIT(t)  pthread_mutex_init(t, NULL)
+#define LOCK(t) pthread_mutex_lock(t)
+#define UNLOCK(t) pthread_mutex_unlock(t)
+#define LOCK_DESTROY(t) pthread_mutex_destroy(t)
+#else
+#define LOCK_INIT(t)  pthread_spin_init(t, PTHREAD_PROCESS_PRIVATE)
+#define LOCK(t) pthread_spin_lock(t)
+#define UNLOCK(t) pthread_spin_unlock(t)
+#define LOCK_DESTROY(t) pthread_spin_destroy(t)
+#endif
 
 void print_usage()
 {
@@ -156,15 +173,15 @@ void cps_timeout()
 {
     unsigned long now_stat, cps;
     
-    pthread_mutex_lock(&cps_stat.calc_lock);
+    LOCK(&cps_stat.calc_lock);
     now_stat = cps_stat.next;
-    pthread_mutex_unlock(&cps_stat.calc_lock);
+    UNLOCK(&cps_stat.calc_lock);
 
     if (now_stat < cps_stat.pre) {
         cps_stat.pre = 0;
-        pthread_mutex_lock(&cps_stat.calc_lock);
+        LOCK(&cps_stat.calc_lock);
         cps_stat.next = 0;
-        pthread_mutex_unlock(&cps_stat.calc_lock);  
+        UNLOCK(&cps_stat.calc_lock);  
     }
 
     cps = now_stat - cps_stat.pre;
@@ -307,9 +324,9 @@ void cps_main_loop(u_char* arg, const struct pcap_pkthdr* pkthdr, const u_char* 
     }
 
     if (!strncmp(data, method_s, strlen(method_s))) {
-        pthread_mutex_lock(&cps_stat.calc_lock);
+        LOCK(&cps_stat.calc_lock);
         __sync_fetch_and_add(&cps_stat.next, 1);
-        pthread_mutex_unlock(&cps_stat.calc_lock);
+        UNLOCK(&cps_stat.calc_lock);
     }
 
     if (debug) {
@@ -359,9 +376,9 @@ int cps_init()
 int cps_start()
 {
     pthread_t tid = 0;
-
-    pthread_mutex_init(&cps_stat.calc_lock, NULL);
-
+    
+    LOCK_INIT(&cps_stat.calc_lock);
+    
     memset(&cps_stat, 0, sizeof(STAT));
     
     if (pthread_create(&tid, NULL, timer_thread, NULL)) {
@@ -374,7 +391,7 @@ int cps_start()
         return -1;
     }
     
-    pthread_mutex_destroy(&cps_stat.calc_lock);
+    LOCK_DESTROY(&cps_stat.calc_lock);
     
     return 0;    
 }
