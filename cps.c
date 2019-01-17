@@ -18,6 +18,8 @@
 #include <arpa/inet.h>
 #include <netinet/in.h> 
 #include <pthread.h>
+#include <pcap/pcap.h>
+
 
 #define VERSION "20190115"
 
@@ -106,8 +108,8 @@ void print_usage()
     printf("Usage: cps <options> [param]\n");
     printf("-t: capture tcp\n");
     printf("-u: capture udp (default)\n");
-    printf("-i: interface\n");
-    printf("-p: port (default 5060)\n");
+    printf("-i [interface] :assign interface\n");
+    printf("-p port :assign port(default 5060)\n");
     printf("-I: capture INVITE\n");
     printf("-R: capture REGISTER\n");
     printf("-h: help\n");
@@ -343,17 +345,20 @@ void cps_main_loop(u_char* arg, const struct pcap_pkthdr* pkthdr, const u_char* 
 int cps_init()
 {
     char *dev;
+    pcap_if_t *alldevsp;
     char err_msg[PCAP_ERRBUF_SIZE] = {0};
+    int ret;
 
     if (interface) {
         dev = interface;
     } else {
-        dev = pcap_lookupdev(err_msg);
-        if (dev) {
-            printf("get device ok: %s\n", dev);
-        } else {
+        ret = pcap_findalldevs(&alldevsp, err_msg);
+        if (-1 == ret) {
             LOGERR("get device fail: %s\n", err_msg);
-            return -1;
+            return -1;          
+        } else {
+            printf("get device ok: %s\n", dev);
+            dev = alldevsp->name;
         }
     }
     
