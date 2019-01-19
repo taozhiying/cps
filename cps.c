@@ -83,6 +83,7 @@ u_short port = 5060;
 char *methods[] = {"INVITE", "REGISTER", "OPTIONS", "BYE"};
 char *method_s = "INVITE";
 u_char src_ip[4] = {0}; 
+u_char dst_ip[4] = {0}; 
 
 enum method_num {
     INVITE = 0,
@@ -114,6 +115,7 @@ void print_usage()
     printf("-I: capture INVITE\n");
     printf("-R: capture REGISTER\n");
     printf("-s src ip :capture only from this ip\n");
+    printf("-d dest ip :capture only from this ip\n");
     printf("-h: help\n");
 }
 
@@ -146,7 +148,7 @@ int parse_ip(char *param, unsigned char src_ip[])
 int handle_opt(int argc, char *argv[])
 {
     char oc;
-    char *options = "v t u p:i:I R h H s:";
+    char *options = "v t u p:i:I R h H s:d:";
 
     while((oc = getopt(argc, argv, options)) != -1) {
         switch (oc) {
@@ -187,6 +189,13 @@ int handle_opt(int argc, char *argv[])
         case 's':
             if (parse_ip(optarg, src_ip)) {
                 fprintf(stderr, "parase src ip error\n");
+                return -1;
+            }
+            break;
+
+        case 'd':
+            if (parse_ip(optarg, dst_ip)) {
+                fprintf(stderr, "parase dst ip error\n");
                 return -1;
             }
             break;
@@ -332,6 +341,14 @@ void cps_main_loop(u_char* arg, const struct pcap_pkthdr* pkthdr, const u_char* 
             src_ip[1] == ip_hdr->ip_src[1] &&
             src_ip[2] == ip_hdr->ip_src[2] &&
             src_ip[3] == ip_hdr->ip_src[3])) {
+            return;
+        }
+    }
+    if (dst_ip[0] || dst_ip[1] || dst_ip[2] || dst_ip[3]) {
+        if (!(dst_ip[0] == ip_hdr->ip_dst[0] && 
+            dst_ip[1] == ip_hdr->ip_dst[1] &&
+            dst_ip[2] == ip_hdr->ip_dst[2] &&
+            dst_ip[3] == ip_hdr->ip_dst[3])) {
             return;
         }
     }
